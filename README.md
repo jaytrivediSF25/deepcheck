@@ -7,8 +7,8 @@ Transcribe a video, isolate every checkable assertion, adjudicate each against t
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Model](https://img.shields.io/badge/model-claude--opus--5-D97757)](https://docs.claude.com)
-[![Tests](https://img.shields.io/badge/tests-59%20passing-2ea44f)](#development)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#installation)
+[![tests](https://github.com/jaytrivediSF25/deepcheck/actions/workflows/tests.yml/badge.svg)](https://github.com/jaytrivediSF25/deepcheck/actions/workflows/tests.yml)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#quick-start)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 </div>
@@ -30,6 +30,32 @@ Transcription is not ours: deepcheck runs on [**youtube-deepsummary**](https://g
 
 ---
 
+## Quick start
+
+```bash
+git clone https://github.com/jaytrivediSF25/deepcheck.git
+cd deepcheck
+./scripts/quickstart-claude.sh          # or quickstart-codex.sh
+```
+
+One command: builds the virtualenv, installs deepcheck, vendors the transcriber, checks your credentials, and opens a coding agent in the repo.
+
+|  | macOS / Linux | Windows (PowerShell) |
+| --- | --- | --- |
+| **Claude Code** | `./scripts/quickstart-claude.sh` | `.\scripts\quickstart-claude.ps1` |
+| **Codex** | `./scripts/quickstart-codex.sh` | `.\scripts\quickstart-codex.ps1` |
+
+Then:
+
+```bash
+deepcheck transcribe "https://youtu.be/VIDEO_ID"   # transcript only, no API calls
+deepcheck check      "https://youtu.be/VIDEO_ID"   # full verification pass
+```
+
+Prefer Docker? `docker build -t deepcheck . && docker run --rm -v "$PWD:/work" -e ANTHROPIC_API_KEY deepcheck check "https://youtu.be/VIDEO_ID"`
+
+---
+
 ## Pipeline
 
 ```mermaid
@@ -42,10 +68,6 @@ flowchart LR
     E --> F["Retrieval<br/><i>web search</i>"]
     F --> G["Adjudication<br/><i>verdict schema</i>"]
     G --> H(["Markdown · HTML · JSON"])
-
-    style A fill:#e8f0fe,stroke:#1a73e8
-    style H fill:#e6f4ea,stroke:#1e8e3e
-    style C stroke-dasharray: 4 4
 ```
 
 | Stage | What it does | Why it matters |
@@ -81,26 +103,16 @@ Partly a technical constraint, partly the more defensible design: the verdict is
 
 ## Verdicts
 
-```mermaid
-flowchart TD
-    S{"Is it a factual<br/>assertion?"} -->|no| OP["opinion"]
-    S -->|yes| E{"Is there public<br/>evidence?"}
-    E -->|no| UV["unverifiable"]
-    E -->|yes| M{"Does the evidence<br/>support it?"}
-    M -->|fully| T["true"]
-    M -->|in substance| MT["mostly_true"]
-    M -->|"right direction,<br/>wrong magnitude"| MI["misleading"]
-    M -->|no| F["false"]
+| | Verdict | Applies when |
+| :---: | --- | --- |
+| 🟩 | `true` | Accurate as stated |
+| 🟩 | `mostly_true` | Accurate in substance; minor imprecision |
+| 🟨 | `misleading` | Real facts arranged to mislead, **or right direction and wrong magnitude** |
+| 🟥 | `false` | Contradicted by the evidence |
+| ⬜ | `unverifiable` | No adequate public evidence either way |
+| ⬜ | `opinion` | Never a factual assertion to begin with |
 
-    style T fill:#e6f4ea,stroke:#1e8e3e
-    style MT fill:#e6f4ea,stroke:#1e8e3e
-    style MI fill:#fef7e0,stroke:#f9ab00
-    style F fill:#fce8e6,stroke:#d93025
-    style UV fill:#f1f3f4,stroke:#80868b
-    style OP fill:#f1f3f4,stroke:#80868b
-```
-
-`misleading` is the class that earns its keep. Most contested numbers in public life are directionally correct and materially wrong. **"Crime fell 88%" when it fell 40%** is neither true nor false in any useful sense — and a binary scale is forced to pick one, systematically laundering exaggeration into accuracy.
+`misleading` is the class that earns its keep. Most contested numbers in public life are directionally correct and materially wrong. **"Crime fell 88%" when it fell 40%** is neither true nor false in any useful sense — a binary scale is forced to pick one, laundering exaggeration into accuracy.
 
 Verdicts are model-generated, carry a confidence level describing the strength of the evidence, and are published with the sources that produced them. The sources are the point.
 
@@ -178,7 +190,6 @@ deepcheck/
 flowchart LR
     U["upstream calls<br/><code>get_transcript()</code>"] --> S["compat.py<br/><i>re-attaches classmethods</i>"]
     S --> L["youtube-transcript-api 1.2+<br/><code>.fetch() / .list()</code>"]
-    style S fill:#fef7e0,stroke:#f9ab00
 ```
 
 No fork, no frozen interpreter, and a no-op when the methods already exist.
@@ -189,32 +200,7 @@ No fork, no frozen interpreter, and a no-op when the methods already exist.
 
 ## Installation
 
-The quickstart builds the environment, vendors the transcriber, verifies credentials, and opens a coding agent in the repository.
-
-| | macOS / Linux | Windows (PowerShell) |
-| --- | --- | --- |
-| **Claude Code** | `./scripts/quickstart-claude.sh` | `.\scripts\quickstart-claude.ps1` |
-| **Codex** | `./scripts/quickstart-codex.sh` | `.\scripts\quickstart-codex.ps1` |
-
-```
-deepcheck quickstart — Claude Code
-
-1/4  Python environment
-  ✓ Python 3.12.4
-  ✓ created .venv
-2/4  Dependencies
-  ✓ deepcheck installed (editable)
-3/4  Upstream transcriber
-  ✓ cloned youtube-deepsummary
-  ✓ transcript backend ready
-4/4  Credentials
-  ✓ ANTHROPIC_API_KEY is set
-
-Opening claude in ~/deepcheck
-```
-
-<details>
-<summary><b>Manual install</b></summary>
+If you would rather not use the [quick start](#quick-start):
 
 ```bash
 git clone https://github.com/jaytrivediSF25/deepcheck.git
@@ -225,9 +211,9 @@ pip install -e .
 .\scripts\install_upstream.ps1         # Windows
 ```
 
-</details>
-
 Credentials resolve in the SDK's own order — `ANTHROPIC_API_KEY`, then `ANTHROPIC_AUTH_TOKEN`, then an `ant auth login` profile. Transcription requires none of them.
+
+Make targets: `make dev` · `make upstream` · `make test` · `make check URL=…`
 
 ---
 
