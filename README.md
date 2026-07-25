@@ -132,19 +132,7 @@ deepcheck "https://www.youtube.com/watch?v=VIDEO_ID"
 
 A real run against C-SPAN's recording of the **July 24, 2026 White House Correspondents' Dinner** address — 11,531 words of transcript, **20 documented claims**, **31 published sources**, each card carrying the article's own cover and headline.
 
-<div align="center">
-  <a href="examples/trump-whcd-factcheck.html">
-    <img src="examples/report-preview.png" alt="Fact-check report: claim, verdict, and source cards with article covers" width="820">
-  </a>
-</div>
-
-<div align="center">
-
-**[📥 Download the PDF](examples/trump-whcd-factcheck.pdf)** &nbsp;·&nbsp; **[🌐 Open the HTML report](examples/trump-whcd-factcheck.html)** &nbsp;·&nbsp; **[▶ Source video](https://www.youtube.com/watch?v=iGDTiTfovwI)**
-
-</div>
-
-> The HTML report is a **single self-contained file** — every article cover is embedded as a data URI, so it opens offline with no external requests. Click the preview above, or grab the 16-page PDF.
+**[📥 Download the report — PDF, 16 pages](examples/trump-whcd-factcheck.pdf)**
 
 ### Flags
 
