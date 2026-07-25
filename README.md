@@ -3,7 +3,7 @@
 # deepcheck
 
 **A verification pipeline for spoken claims.**
-Transcribe a video, isolate every checkable assertion, and adjudicate each one against the live public record.
+Transcribe a video, isolate every checkable assertion, adjudicate each against the live public record.
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Model](https://img.shields.io/badge/model-claude--opus--5-D97757)](https://docs.claude.com)
@@ -17,49 +17,108 @@ Transcribe a video, isolate every checkable assertion, and adjudicate each one a
 
 ## The problem
 
-Assertions are produced faster than they can be checked. A single hour of political speech, a quarterly earnings call, a press briefing, a deposition — each carries dozens of specific, falsifiable statements, and each is consumed in full long before any of them are examined. The asymmetry is structural: making a claim costs a sentence, and checking one costs a research session. Newsrooms have understood this for a century and staffed against it. Almost nobody else can.
+Making a claim costs a sentence. Checking one costs a research session. An hour of political speech carries dozens of specific, falsifiable statements and is consumed in full long before any of them are examined.
 
-deepcheck closes part of that gap by treating a recording as a body of evidence rather than a stream of talk. It converts speech to text, decomposes the text into discrete factual assertions, retrieves supporting and contradicting material for each assertion independently, and emits an auditable record in which every judgment is bound to the sources that produced it. The output is not a verdict you are asked to trust. It is a worksheet you are expected to check — every finding ships with the articles behind it, cover image and headline intact, so the reader can go to the source in one click.
+deepcheck treats a recording as evidence rather than talk. Every judgment is bound to the sources that produced it — the output is not a verdict you are asked to trust, it is a worksheet you are expected to check.
 
-The transcription layer is not ours. deepcheck runs on top of [**youtube-deepsummary**](https://github.com/nickita-khylkouski/youtube-deepsummary) by [@nickita-khylkouski](https://github.com/nickita-khylkouski), importing its `TranscriptExtractor` directly rather than reimplementing extraction. What this project adds is everything downstream of the transcript.
+```
+  1 hour of speech  ──►  11,531 words  ──►  20 checkable claims  ──►  31 sources
+      65 minutes           transcript          isolated & anchored      retrieved & cited
+```
+
+Transcription is not ours: deepcheck runs on [**youtube-deepsummary**](https://github.com/nickita-khylkouski/youtube-deepsummary) by [@nickita-khylkouski](https://github.com/nickita-khylkouski), importing its `TranscriptExtractor` directly. This project is everything downstream of the transcript.
 
 ---
 
-## How it works
+## Pipeline
 
 ```mermaid
 flowchart LR
-    A["Video URL"] --> B["youtube-deepsummary<br/><i>TranscriptExtractor</i>"]
-    B -. "fallback" .-> C["yt-dlp subtitles"]
-    B --> D["Timestamped transcript"]
+    A(["Video URL"]) --> B["youtube-deepsummary<br/><i>TranscriptExtractor</i>"]
+    B -. fallback .-> C["yt-dlp subtitles"]
+    B --> D["Timestamped<br/>transcript"]
     C --> D
     D --> E["Claim isolation<br/><i>structured output</i>"]
-    E --> F["Retrieval<br/><i>server-side web search</i>"]
-    F --> G["Adjudication<br/><i>strict verdict schema</i>"]
-    G --> H["Markdown · HTML · JSON"]
+    E --> F["Retrieval<br/><i>web search</i>"]
+    F --> G["Adjudication<br/><i>verdict schema</i>"]
+    G --> H(["Markdown · HTML · JSON"])
+
+    style A fill:#e8f0fe,stroke:#1a73e8
+    style H fill:#e6f4ea,stroke:#1e8e3e
+    style C stroke-dasharray: 4 4
 ```
 
-**Acquisition.** The transcript comes from upstream's extractor, which negotiates YouTube's caption tracks and language fallbacks. If that path fails for any reason, deepcheck falls back to `yt-dlp` subtitles and records which route produced the text, because provenance starts at ingestion and a report that cannot say where its transcript came from is not auditable.
+| Stage | What it does | Why it matters |
+| --- | --- | --- |
+| **Acquire** | Upstream extractor, `yt-dlp` fallback | Provenance starts at ingestion — the report records which route ran |
+| **Isolate** | Decompose into standalone assertions | A claim as spoken leans on pronouns and "last year"; rewritten to survive alone |
+| **Anchor** | Match each verbatim quote to a segment | A claim you cannot locate in the recording cannot be reviewed |
+| **Retrieve** | Adversarial web search per claim | Instructed to find evidence *against*, not only for |
+| **Adjudicate** | Strict schema, no tools | Written from evidence on the page, not from recollection |
 
-**Isolation.** The transcript is chunked and each chunk is decomposed into standalone assertions. This step does more work than it appears to. A claim as spoken is rarely checkable as spoken — it leans on pronouns, on "last year", on whatever was said two sentences ago. Each extracted claim is rewritten to survive on its own, with references resolved, while the speaker's numbers are preserved exactly as uttered. Every claim retains a verbatim quote, which is matched back against the segment list to anchor it to a timestamp in the recording. Opinions, jokes, and pure predictions are deliberately excluded; a pipeline that adjudicates rhetoric produces noise.
+### Why two calls per claim
 
-**Retrieval.** Each claim is researched independently against the live web using Claude's server-side search. The instruction is adversarial by design: find the evidence *against* the claim, not only the evidence for it. Primary sources — agency data, filings, transcripts, official statements — are weighted above aggregators, and disagreement between sources is recorded rather than resolved away.
+```mermaid
+sequenceDiagram
+    participant D as deepcheck
+    participant C as Claude
+    participant W as Web
 
-**Adjudication.** A second, separate call converts that research into a verdict under a strict schema, with no tools attached. The separation is partly a technical constraint — search results carry citations, and citations cannot be combined with constrained output in a single request — but it is also the more defensible design. The verdict is written from evidence already on the page rather than from the model's recollection, which for any event after the training cutoff is the difference between a check and a guess.
+    D->>C: Research this claim
+    C->>W: search ×N
+    W-->>C: results + citations
+    C-->>D: evidence brief
 
-Verdicts fall into six classes. `true` and `mostly_true` cover claims that hold, the latter allowing minor imprecision that does not change the meaning. `false` covers claims the evidence contradicts. `unverifiable` is used where no adequate public evidence exists in either direction, and is preferred over guessing. `opinion` marks statements that were never factual assertions to begin with.
+    Note over D,C: separate call — citations and<br/>constrained output cannot mix
 
-The sixth class, `misleading`, is the one that earns its keep. Most contested numbers in public life are directionally correct and materially wrong — a real trend cited at an impossible magnitude, a genuine figure stripped of the context that gives it meaning. "Crime fell 88%" when it fell 40% is neither true nor false in any useful sense, and a binary scale is forced to call it one or the other. A verification system without this category will systematically launder exaggeration into accuracy.
+    D->>C: Adjudicate brief (schema, no tools)
+    C-->>D: verdict · confidence · sources
+```
 
-Verdicts are generated by a model and carry a confidence level describing the strength of the evidence, not the strength of the model's conviction. Each one is published with the sources that produced it, and the sources are the point.
+Partly a technical constraint, partly the more defensible design: the verdict is written from evidence already retrieved rather than from the model's recollection. For any event after the training cutoff, that is the difference between a check and a guess.
+
+---
+
+## Verdicts
+
+```mermaid
+flowchart TD
+    S{"Is it a factual<br/>assertion?"} -->|no| OP["opinion"]
+    S -->|yes| E{"Is there public<br/>evidence?"}
+    E -->|no| UV["unverifiable"]
+    E -->|yes| M{"Does the evidence<br/>support it?"}
+    M -->|fully| T["true"]
+    M -->|in substance| MT["mostly_true"]
+    M -->|"right direction,<br/>wrong magnitude"| MI["misleading"]
+    M -->|no| F["false"]
+
+    style T fill:#e6f4ea,stroke:#1e8e3e
+    style MT fill:#e6f4ea,stroke:#1e8e3e
+    style MI fill:#fef7e0,stroke:#f9ab00
+    style F fill:#fce8e6,stroke:#d93025
+    style UV fill:#f1f3f4,stroke:#80868b
+    style OP fill:#f1f3f4,stroke:#80868b
+```
+
+`misleading` is the class that earns its keep. Most contested numbers in public life are directionally correct and materially wrong. **"Crime fell 88%" when it fell 40%** is neither true nor false in any useful sense — and a binary scale is forced to pick one, systematically laundering exaggeration into accuracy.
+
+Verdicts are model-generated, carry a confidence level describing the strength of the evidence, and are published with the sources that produced them. The sources are the point.
 
 ---
 
 ## Example report
 
-The example is a real run against C-SPAN's recording of President Trump's remarks at the **White House Correspondents' Dinner on July 24, 2026** — the rescheduled dinner, held after a shooting outside the Washington Hilton cut the original April 25 event short. He spoke for 65 minutes, covering the Iran strikes, DC crime, TikTok, the White House ballroom, and a long stretch of political material. deepcheck pulled 11,531 words of transcript, isolated the checkable claims, and adjudicated each against the live web: **20 documented claims** across **31 published sources**, every source card carrying the article's own cover and headline.
+C-SPAN's recording of President Trump's remarks at the **White House Correspondents' Dinner, July 24 2026** — the rescheduled dinner, held after a shooting outside the Washington Hilton cut the original April 25 event short. Sixty-five minutes covering the Iran strikes, DC crime, TikTok, the ballroom, and a long stretch of political material.
 
-**[Download the report — PDF, 16 pages](examples/trump-whcd-factcheck.pdf)**
+<div align="center">
+
+| Transcript | Claims documented | Sources cited | Report |
+| :---: | :---: | :---: | :---: |
+| **11,531** words | **20** | **31** | 16 pages |
+
+**[📥 Download the report — PDF](examples/trump-whcd-factcheck.pdf)**
+
+</div>
 
 ---
 
@@ -69,14 +128,21 @@ The example is a real run against C-SPAN's recording of President Trump's remark
 # transcript only — no API calls, no cost
 deepcheck transcribe "https://www.youtube.com/watch?v=VIDEO_ID" -o transcript.txt
 
-# full verification pass, all three output formats
+# full verification pass
 deepcheck check "https://www.youtube.com/watch?v=VIDEO_ID" -f md,html,json -o report
 
 # `check` is the default
 deepcheck "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-Three artifacts come out of a run. Markdown is for reading and diffing. JSON is the machine-readable record — every claim, verdict, confidence level, and source URL, suitable for loading into whatever sits downstream. HTML is the presentation layer: a single self-contained file with every article cover embedded as a data URI, so it opens offline with no external requests and can be archived as-is.
+Three artifacts per run:
+
+```
+report.md     reading and diffing
+report.json   machine-readable — claim, verdict, confidence, source URLs
+report.html   single self-contained file; covers embedded as data URIs,
+              opens offline, archivable as-is
+```
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
@@ -89,19 +155,11 @@ Three artifacts come out of a run. Markdown is for reading and diffing. JSON is 
 | `--model` | `claude-opus-5` | Model override |
 | `--no-fallbacks` | off | Disable the server-side refusal fallback |
 
-Every flag has a `DEEPCHECK_*` environment equivalent — see [`.env.example`](.env.example). Cost scales with the number of claims rather than the length of the video: one call per transcript chunk to isolate claims, then two per claim to research and adjudicate.
+Every flag has a `DEEPCHECK_*` environment equivalent — see [`.env.example`](.env.example). Cost scales with claims, not video length: one call per transcript chunk, then two per claim.
 
 ---
 
 ## Architecture
-
-**Two acquisition paths.** Upstream is primary and `yt-dlp` is the fallback, with the report recording which one ran. During development the fallback earned its place more than once, which is the argument for having it.
-
-**A compatibility shim for upstream.** `youtube-deepsummary` calls `YouTubeTranscriptApi.get_transcript()` and `.list_transcripts()` — classmethods that `youtube-transcript-api` removed in 1.2. Upstream pins `==1.1.0`, which will not install on every Python version, and the last release that retained the classmethods no longer works against YouTube's current endpoints. Rather than fork upstream or freeze the interpreter, [`deepcheck/compat.py`](deepcheck/compat.py) re-attaches the two classmethods on top of the modern library, so upstream's extractor runs unmodified. It is a no-op when the methods already exist.
-
-**Timestamp anchoring.** Each claim carries a verbatim quote matched back to a transcript segment: exact substring first, then fuzzy match above a similarity floor. Speech recognition output and the model's quoting rarely agree character for character, and a claim that cannot be located in the recording cannot be independently reviewed.
-
-**Failure isolation.** Per-claim errors and model refusals are caught and recorded as `unverifiable` with the reason attached. One claim that cannot be checked does not take down the run, and the report says so rather than silently dropping it.
 
 ```
 deepcheck/
@@ -114,11 +172,24 @@ deepcheck/
 └── cli.py          argument routing, error messaging
 ```
 
+**A compatibility shim for upstream.** `youtube-deepsummary` calls `YouTubeTranscriptApi.get_transcript()` and `.list_transcripts()` — classmethods that `youtube-transcript-api` removed in 1.2. Upstream pins `==1.1.0`, which will not install on every Python version, and the last release retaining the classmethods no longer works against YouTube's current endpoints.
+
+```mermaid
+flowchart LR
+    U["upstream calls<br/><code>get_transcript()</code>"] --> S["compat.py<br/><i>re-attaches classmethods</i>"]
+    S --> L["youtube-transcript-api 1.2+<br/><code>.fetch() / .list()</code>"]
+    style S fill:#fef7e0,stroke:#f9ab00
+```
+
+No fork, no frozen interpreter, and a no-op when the methods already exist.
+
+**Failure isolation.** Per-claim errors and refusals are recorded as `unverifiable` with the reason attached. One uncheckable claim does not take down the run, and the report says so rather than silently dropping it.
+
 ---
 
 ## Installation
 
-The quickstart scripts build the environment, vendor the transcriber, verify credentials, and open a coding agent inside the repository.
+The quickstart builds the environment, vendors the transcriber, verifies credentials, and opens a coding agent in the repository.
 
 | | macOS / Linux | Windows (PowerShell) |
 | --- | --- | --- |
@@ -142,9 +213,8 @@ deepcheck quickstart — Claude Code
 Opening claude in ~/deepcheck
 ```
 
-If the agent is not installed, setup still completes and the script reports the install command.
-
-To install by hand instead:
+<details>
+<summary><b>Manual install</b></summary>
 
 ```bash
 git clone https://github.com/jaytrivediSF25/deepcheck.git
@@ -155,7 +225,9 @@ pip install -e .
 .\scripts\install_upstream.ps1         # Windows
 ```
 
-Credentials resolve in the SDK's own order — `ANTHROPIC_API_KEY`, then `ANTHROPIC_AUTH_TOKEN`, then an `ant auth login` profile. Any one is sufficient. Transcription requires none of them.
+</details>
+
+Credentials resolve in the SDK's own order — `ANTHROPIC_API_KEY`, then `ANTHROPIC_AUTH_TOKEN`, then an `ant auth login` profile. Transcription requires none of them.
 
 ---
 
@@ -163,13 +235,13 @@ Credentials resolve in the SDK's own order — `ANTHROPIC_API_KEY`, then `ANTHRO
 
 ```bash
 pip install -e ".[dev]"
-pytest
+pytest        # 59 passed — no network required
 ```
 
-Fifty-nine tests, no network required. They cover URL parsing, VTT parsing and rolling-window collapse, chunking, timestamp anchoring, claim prioritization, the compatibility shim, report rendering in all three formats, HTML escaping, CLI argument routing, and API error messaging.
+URL parsing · VTT parsing and rolling-window collapse · chunking · timestamp anchoring · claim prioritization · the compatibility shim · report rendering in all three formats · HTML escaping · CLI argument routing · API error messaging.
 
 ---
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE). `youtube-deepsummary` is a separate project under its own licence; this repository vendors it at install time rather than redistributing it.
+MIT — see [LICENSE](LICENSE). `youtube-deepsummary` is a separate project under its own licence; vendored at install time rather than redistributed.
