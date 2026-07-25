@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepcheck"
+version = "0.1.0"
+description = "Transcribe a YouTube video and fact-check what was said, on top of youtube-deepsummary."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "anthropic>=0.116.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+fallback = ["yt-dlp>=2025.6.9"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+deepcheck = "deepcheck.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["deepcheck*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
