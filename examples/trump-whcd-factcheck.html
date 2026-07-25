@@ -69,6 +69,37 @@ p.srcs { margin-top: .35rem; }
            overflow: hidden; font-size: .88rem; line-height: 1.35; font-weight: 600; }
 .c-go { display: block; margin-top: .45rem; font-size: .76rem; color: #0645ad; }
 
+
+/* --- Print / PDF -------------------------------------------------------- */
+@page { margin: 14mm 12mm; }
+
+@media print {
+  body { font-size: 11pt; line-height: 1.5; max-width: none; padding: 0; }
+  h1 { font-size: 20pt; }
+  h2 { font-size: 14pt; margin-top: 1.4rem; }
+  h3 { font-size: 11.5pt; }
+  a { color: #0645ad; text-decoration: none; }
+
+  /* A source card must never be split: the cover would land on one page and
+     the headline on the next. */
+  .card { break-inside: avoid; page-break-inside: avoid; box-shadow: none; }
+  .srcs { break-inside: avoid; page-break-inside: avoid;
+          grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+  .cover { break-inside: avoid; }
+
+  /* Keep a heading with the text it introduces, and a verdict with its sources. */
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+  p.verdict { break-after: avoid; page-break-after: avoid; }
+  article { orphans: 3; widows: 3; }
+
+  .tiles { break-inside: avoid; }
+  .tile { border: 1px solid #dde3ea; }
+  .c-title { -webkit-line-clamp: 4; }
+
+  /* Chrome drops background images in print unless told otherwise. */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 @media (max-width: 44rem) { .tiles { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 34rem) {
   body { font-size: 16px; padding-top: 1.5rem; }
