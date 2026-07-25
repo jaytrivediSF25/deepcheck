@@ -130,7 +130,7 @@ deepcheck "https://www.youtube.com/watch?v=VIDEO_ID"
 
 ### 📄 Example report
 
-A real run against C-SPAN's recording of the **July 24, 2026 White House Correspondents' Dinner** address — 11,531 words of transcript, **20 documented claims**, **31 published sources**, each card carrying the article's own cover and headline.
+The example is a real run against C-SPAN's recording of President Trump's remarks at the **White House Correspondents' Dinner on July 24, 2026** — the rescheduled dinner, held after a shooting outside the Washington Hilton cut the original April 25 event short. He spoke for 65 minutes, covering the Iran strikes, DC crime, TikTok, the White House ballroom, and a long stretch of political material. deepcheck pulled 11,531 words of transcript, extracted the checkable claims, and verified each against the live web: **20 documented claims** across **31 published sources**, every source card carrying the article's own cover and headline.
 
 **[📥 Download the report — PDF, 16 pages](examples/trump-whcd-factcheck.pdf)**
 
