@@ -6,8 +6,8 @@ venv/
 *.egg-info/
 build/
 dist/
-report.md
-report.html
-report.json
+/report.md
+/report.html
+/report.json
 vendor/youtube-deepsummary/
 .pytest_cache/

@@ -128,27 +128,23 @@ deepcheck check "https://www.youtube.com/watch?v=VIDEO_ID" -f md,html,json -o re
 deepcheck "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-### Example run
+### 📄 Example report
 
-```
-Fetching transcript...
-  11,431 words via youtube-deepsummary — President Trump Full Remarks...
-Extracting claims...
-  chunk 1/6 … chunk 6/6
-  38 claims to verify
-Verifying (concurrency 4)...
-  38/38
+A real run against C-SPAN's recording of the **July 24, 2026 White House Correspondents' Dinner** address — 11,531 words of transcript, **20 documented claims**, **31 published sources**, each card carrying the article's own cover and headline.
 
-Checked 38 claims:
-  False                     12
-  Misleading                 7
-  Mostly true                4
-  True                       9
-  Unverifiable               6
+<div align="center">
+  <a href="examples/trump-whcd-factcheck.html">
+    <img src="examples/report-preview.png" alt="Fact-check report: claim, verdict, and source cards with article covers" width="820">
+  </a>
+</div>
 
-Wrote report.md
-Wrote report.html
-```
+<div align="center">
+
+**[📥 Download the PDF](examples/trump-whcd-factcheck.pdf)** &nbsp;·&nbsp; **[🌐 Open the HTML report](examples/trump-whcd-factcheck.html)** &nbsp;·&nbsp; **[▶ Source video](https://www.youtube.com/watch?v=iGDTiTfovwI)**
+
+</div>
+
+> The HTML report is a **single self-contained file** — every article cover is embedded as a data URI, so it opens offline with no external requests. Click the preview above, or grab the 16-page PDF.
 
 ### Flags
 
