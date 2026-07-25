@@ -25,6 +25,18 @@ First working release.
 - Docker image, Makefile, and cross-platform CI.
 - 59 offline tests.
 
+### Security
+- `security.py` — trust boundaries in one place: URL scheme allow-listing,
+  video-ID validation, control/bidi character stripping, prompt fencing.
+- Citation admissibility: a source is kept only if the search tool actually
+  retrieved that URL, so a fabricated or injected citation cannot reach a report.
+- Report renderers validate every URL before it reaches an `href`; unsupported
+  schemes render as inert text rather than being silently dropped.
+- Prompt-injection boundary notice on all three model stages.
+- CI: pip-audit, CodeQL, Bandit, and grep guards against `shell=True` and raw
+  URL interpolation.
+- See [SECURITY.md](SECURITY.md).
+
 ### Known limits
 - Verdicts are model-generated and published with their sources; they are a
   research aid, not a citation.

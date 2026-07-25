@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .config import Config
 from .models import CLAIM_CATEGORIES, Claim, Segment, format_timestamp
+from .security import UNTRUSTED_NOTICE, wrap_untrusted
 
 if TYPE_CHECKING:  # keeps chunking/anchoring importable without the SDK installed
     from .llm import Client
@@ -81,8 +82,9 @@ garbled. Infer the intended name and use the correct spelling in `text`, but kee
 `quote` verbatim.
 - Prefer the specific over the general. "Crime fell 88%" beats "crime fell".
 - If a passage contains no checkable claims, return an empty list. Do not \
-manufacture claims to fill space.\
-"""
+manufacture claims to fill space.
+
+""" + UNTRUSTED_NOTICE
 
 
 def chunk_segments(
@@ -169,7 +171,7 @@ def extract_claims(
                     "content": (
                         f"Transcript excerpt {index} of {len(chunks)}. "
                         "Extract the checkable factual claims.\n\n"
-                        f"<transcript>\n{body}\n</transcript>"
+                        + wrap_untrusted("transcript", body)
                     ),
                 }
             ],

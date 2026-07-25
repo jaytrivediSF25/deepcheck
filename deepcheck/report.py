@@ -7,10 +7,20 @@ import json
 from typing import List
 
 from .models import RATING_LABELS, RATINGS, Finding, Report
+from .security import safe_display_url, safe_url
 
 # Black / white / light blue, matching the reference report styling.
 _ACCENT = "#1573b8"
 _ACCENT_DARK = "#7cc4f5"
+
+
+def _link(url: str) -> str:
+    """Render a URL as a link only if its scheme is safe."""
+    href = safe_url(url)
+    text = html.escape(safe_display_url(url))
+    if not href:
+        return f"{text} (link withheld)"
+    return f'<a href="{html.escape(href)}" rel="noopener noreferrer">{text}</a>'
 
 
 def to_json(report: Report) -> str:
@@ -28,7 +38,9 @@ def to_markdown(report: Report) -> str:
 
     add(f"# Fact-check: {report.title or report.video_id}")
     add("")
-    add(f"**Source:** [{report.video_url}]({report.video_url})")
+    video_href = safe_url(report.video_url)
+    shown = safe_display_url(report.video_url)
+    add(f"**Source:** [{shown}]({video_href})" if video_href else f"**Source:** {shown}")
     add(f"**Checked:** {report.checked_at}")
     add(f"**Transcript:** {report.word_count:,} words (via {report.transcript_source})")
     add(f"**Model:** {report.model}")
@@ -78,8 +90,12 @@ def _markdown_finding(finding: Finding) -> str:
     if verdict.sources:
         parts.append("Sources:")
         for source in verdict.sources:
-            title = source.title or source.url
-            parts.append(f"- [{title}]({source.url})")
+            title = (source.title or safe_display_url(source.url)).replace("]", r"\]")
+            href = safe_url(source.url)
+            if href:
+                parts.append(f"- [{title}]({href})")
+            else:
+                parts.append(f"- {title} (link withheld — unsupported scheme)")
         parts.append("")
     return "\n".join(parts)
 
@@ -124,7 +140,7 @@ def to_html(report: Report) -> str:
   <p class="kicker">Fact-check</p>
   <h1>{e(report.title or report.video_id)}</h1>
   <dl class="meta">
-    <dt>Source</dt><dd><a href="{e(report.video_url)}">{e(report.video_url)}</a></dd>
+    <dt>Source</dt><dd>{_link(report.video_url)}</dd>
     <dt>Checked</dt><dd>{e(report.checked_at)}</dd>
     <dt>Transcript</dt><dd>{report.word_count:,} words &middot; {e(report.transcript_source)}</dd>
     <dt>Claims</dt><dd>{len(report.findings)}</dd>
@@ -160,11 +176,23 @@ def _html_finding(finding: Finding) -> str:
     )
     sources = ""
     if verdict.sources:
-        links = "\n".join(
-            f'<li><a href="{e(s.url)}">{e(s.title or s.url)}</a></li>'
-            for s in verdict.sources
+        items = []
+        for s in verdict.sources:
+            label = e(s.title or safe_display_url(s.url))
+            href = safe_url(s.url)
+            if href:
+                items.append(f'<li><a href="{e(href)}" rel="noopener noreferrer">{label}</a></li>')
+            else:
+                # Not http(s): render inert, and say so rather than dropping it.
+                items.append(
+                    f'<li>{label} <span class="unsafe">(link withheld — '
+                    f"unsupported scheme)</span></li>"
+                )
+        sources = (
+            '<div class="sources"><h4>Sources</h4><ul>'
+            + "\n".join(items)
+            + "</ul></div>"
         )
-        sources = f'<div class="sources"><h4>Sources</h4><ul>{links}</ul></div>'
 
     return f"""<article>
   <h3>{e(claim.text)} {stamp}</h3>

@@ -22,19 +22,24 @@ from typing import List, Optional, Tuple
 
 from .config import Config
 from .models import Segment, format_timestamp
+from .security import MAX_INPUT_LENGTH, is_video_id, strip_control
 
 
 class TranscriptError(RuntimeError):
     pass
 
 
-_VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
-
-
 def parse_video_id(url_or_id: str) -> str:
-    """Accept a bare ID, a watch URL, youtu.be, shorts, or embed URL."""
-    value = (url_or_id or "").strip()
-    if _VIDEO_ID_RE.match(value):
+    """Accept a bare ID, a watch URL, youtu.be, shorts, or embed URL.
+
+    The result is the only user-controlled component of the URLs handed to
+    yt-dlp, so it is validated against a strict character class rather than
+    merely extracted.
+    """
+    value = strip_control(url_or_id or "")
+    if len(value) > MAX_INPUT_LENGTH:
+        raise TranscriptError("Input is implausibly long for a YouTube URL")
+    if is_video_id(value):
         return value
 
     patterns = [
@@ -46,7 +51,7 @@ def parse_video_id(url_or_id: str) -> str:
     ]
     for pattern in patterns:
         match = re.search(pattern, value)
-        if match:
+        if match and is_video_id(match.group(1)):
             return match.group(1)
 
     raise TranscriptError(f"Could not find a YouTube video ID in {url_or_id!r}")

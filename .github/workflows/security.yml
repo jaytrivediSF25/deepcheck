@@ -1,0 +1,78 @@
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Dependencies rot even when the code does not.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e . pip-audit
+      - name: Known vulnerabilities
+        run: pip-audit --strict --progress-spinner=off
+
+  codeql:
+    name: codeql
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
+
+  bandit:
+    name: static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install bandit[toml]
+      # Bandit flags every subprocess call; ours pass argument lists and are
+      # covered by tests, so the check is scoped to higher-severity findings.
+      - run: bandit -r deepcheck -ll -ii
+
+  boundaries:
+    name: trust boundaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: Trust-boundary tests
+        run: pytest tests/test_security.py -v
+
+      # A regression here is a vulnerability, not a style issue.
+      - name: No shell=True anywhere
+        run: |
+          ! grep -rn "shell=True" deepcheck/ || (echo "shell=True introduced" && exit 1)
+      # Catches a raw model-supplied .url being interpolated straight into an
+      # href. The safe form passes the result of safe_url() instead.
+      - name: No raw URL interpolated into an href
+        run: |
+          if grep -nE 'href="\{[^}]*\.url' deepcheck/report.py; then
+            echo "unvalidated URL interpolated into an href"; exit 1
+          fi
+      - name: report.py validates URLs
+        run: grep -q "from .security import" deepcheck/report.py

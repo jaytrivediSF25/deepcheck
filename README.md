@@ -9,6 +9,7 @@ Transcribe a video, isolate every checkable assertion, adjudicate each against t
 [![Model](https://img.shields.io/badge/model-claude--opus--5-D97757)](https://docs.claude.com)
 [![tests](https://github.com/jaytrivediSF25/deepcheck/actions/workflows/tests.yml/badge.svg)](https://github.com/jaytrivediSF25/deepcheck/actions/workflows/tests.yml)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#quick-start)
+[![security](https://github.com/jaytrivediSF25/deepcheck/actions/workflows/security.yml/badge.svg)](https://github.com/jaytrivediSF25/deepcheck/actions/workflows/security.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 </div>
@@ -198,6 +199,39 @@ No fork, no frozen interpreter, and a no-op when the methods already exist.
 
 ---
 
+## Security
+
+deepcheck reads adversarial input by design: anyone can upload a video, caption
+tracks are text a third party wrote, and the research brief contains material
+pulled from arbitrary web pages. Three controls are enforced **in code**, not
+asked for in a prompt.
+
+**Citations must have been retrieved.** A source is admissible only if the search
+tool actually returned that URL. A URL the model produces from anywhere else —
+recollection, or text embedded in a hostile page — is dropped. A verification tool
+that can be talked into citing a URL is worse than no tool, because the citation
+is the part the reader trusts.
+
+**URLs are validated, not merely escaped.** `html.escape` does not make a URL
+safe: `<a href="javascript:alert(1)">` survives escaping untouched, and the HTML
+report is a self-contained file opened from disk. Only `http` and `https` reach
+an `href`; anything else renders as inert text marked *link withheld*. URLs with
+embedded credentials (`https://trusted.com@evil.example`) and bidirectional
+override characters are rejected too.
+
+**Untrusted text is fenced.** The transcript and the research brief are wrapped
+in labelled blocks behind an explicit boundary notice. Prompting is mitigation
+rather than guarantee — which is exactly why the two controls above exist.
+
+Subprocess calls pass argument lists, never a shell string. The only
+user-controlled component of any command is the video ID, validated against
+`[A-Za-z0-9_-]{11}` with `fullmatch` after control characters are stripped.
+
+CI runs `pip-audit`, CodeQL, and Bandit on every push, and re-runs the dependency
+audit weekly. Full threat model and reporting process: [SECURITY.md](SECURITY.md).
+
+---
+
 ## Installation
 
 If you would rather not use the [quick start](#quick-start):
@@ -221,10 +255,10 @@ Make targets: `make dev` · `make upstream` · `make test` · `make check URL=�
 
 ```bash
 pip install -e ".[dev]"
-pytest        # 59 passed — no network required
+pytest        # 98 passed — no network required
 ```
 
-URL parsing · VTT parsing and rolling-window collapse · chunking · timestamp anchoring · claim prioritization · the compatibility shim · report rendering in all three formats · HTML escaping · CLI argument routing · API error messaging.
+URL parsing · VTT parsing and rolling-window collapse · chunking · timestamp anchoring · claim prioritization · the compatibility shim · report rendering in all three formats · HTML escaping · CLI argument routing · API error messaging · and the trust boundaries above.
 
 ---
 
