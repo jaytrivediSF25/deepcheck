@@ -17,10 +17,13 @@ jobs:
     name: dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      # --strict audits the whole environment, pip included, so an outdated
+      # runner pip fails this job for reasons unrelated to the project.
+      - run: python -m pip install --upgrade pip
       - run: pip install -e . pip-audit
       - name: Known vulnerabilities
         run: pip-audit --strict --progress-spinner=off
@@ -29,9 +32,13 @@ jobs:
     name: codeql
     runs-on: ubuntu-latest
     permissions:
+      # A job-level block REPLACES the top-level one rather than merging, so
+      # contents:read has to be restated here or checkout cannot read the repo.
+      contents: read
       security-events: write
+      actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: github/codeql-action/init@v3
         with:
           languages: python
@@ -42,8 +49,8 @@ jobs:
     name: static analysis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install bandit[toml]
@@ -55,8 +62,8 @@ jobs:
     name: trust boundaries
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"

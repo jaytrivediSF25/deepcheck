@@ -16,7 +16,12 @@ from deepcheck.security import (
     strip_control,
     wrap_untrusted,
 )
-from deepcheck.transcript import TranscriptError, parse_video_id
+from deepcheck.transcript import (
+    TranscriptError,
+    fetch_via_upstream,
+    parse_video_id,
+    watch_url,
+)
 
 
 class TestSafeUrl:
@@ -94,6 +99,46 @@ class TestVideoId:
     def test_extracted_id_is_revalidated(self):
         with pytest.raises(TranscriptError):
             parse_video_id("https://evil.example/?v=short")
+
+
+class TestFetchTargetIsValidated:
+    """Every URL handed to yt-dlp is built from a validated ID, not a trusted one.
+
+    These are library entry points: a caller can reach them without going
+    through `parse_video_id` first, so the check has to live at the callee.
+    """
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "abc12345678&list=PLxxx",  # appends a parameter
+            "abc/../../../evil",  # walks to another path
+            "abc12345678#frag",
+            "abc12345678 extra",
+            "../../etc/passwd",
+            "",
+            "short",
+            "waytoolongvideoid123",
+        ],
+    )
+    def test_watch_url_refuses_unvalidated_ids(self, bad):
+        with pytest.raises(TranscriptError):
+            watch_url(bad)
+
+    def test_watch_url_accepts_a_real_id(self):
+        assert watch_url("iGDTiTfovwI") == "https://www.youtube.com/watch?v=iGDTiTfovwI"
+
+    def test_watch_url_output_host_is_always_youtube(self):
+        from urllib.parse import urlparse
+
+        assert urlparse(watch_url("iGDTiTfovwI")).netloc == "www.youtube.com"
+
+    def test_upstream_boundary_rejects_before_importing(self):
+        # Must raise on the ID, not on a missing upstream checkout.
+        from deepcheck.config import Config
+
+        with pytest.raises(TranscriptError, match="Invalid video ID"):
+            fetch_via_upstream("abc&list=x", Config())
 
 
 class TestPromptFencing:

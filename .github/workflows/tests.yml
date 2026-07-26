@@ -17,9 +17,9 @@ jobs:
         python: ["3.10", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -35,7 +35,7 @@ jobs:
     name: shell + powershell syntax
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check bash scripts parse
         run: for f in scripts/*.sh; do bash -n "$f"; done
       - name: Check PowerShell scripts parse

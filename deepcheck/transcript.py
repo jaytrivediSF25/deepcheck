@@ -58,6 +58,18 @@ def parse_video_id(url_or_id: str) -> str:
 
 
 def watch_url(video_id: str) -> str:
+    """Build the canonical watch URL, re-validating the ID first.
+
+    Every URL handed to yt-dlp is built here, so this is the choke point worth
+    enforcing at. Interpolating an unvalidated ID would let a caller steer the
+    fetch somewhere else entirely — `abc&list=...` appends a parameter,
+    `x/../../other` walks to a different path — which turns a video fetch into
+    a request for an arbitrary URL. Callers inside the CLI already run
+    `parse_video_id`; library callers may not, so the check lives here rather
+    than depending on the call site.
+    """
+    if not is_video_id(video_id):
+        raise TranscriptError(f"Refusing to build a URL from invalid video ID {video_id!r}")
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
@@ -97,6 +109,10 @@ def _import_upstream(cfg: Config):
 
 
 def fetch_via_upstream(video_id: str, cfg: Config) -> List[Segment]:
+    # Upstream builds its own request from this ID; validate before handing it
+    # across the boundary rather than inheriting whatever it does with it.
+    if not is_video_id(video_id):
+        raise TranscriptError(f"Invalid video ID {video_id!r}")
     extract = _import_upstream(cfg)
     raw = extract(video_id)
     if not raw:
